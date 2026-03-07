@@ -18,7 +18,7 @@ From within the directory:
 pip install -r requirements.txt
 ```
 
-## Run
+## Changing Isotope and Ground Hyperfine State
 
 You can edit the isotope and the ground state of interest and the q of the lattice photon:
 
@@ -28,5 +28,7 @@ F = 3
 mF = 3
 q = 0
 ```
+
+## Run
 
 `python lattice-calc-plt.py`
