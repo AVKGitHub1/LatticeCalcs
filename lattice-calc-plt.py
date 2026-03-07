@@ -122,8 +122,8 @@ ax_waist = plt.axes([0.16, 0.07, 0.72, 0.03], facecolor=SLIDER_BG)
 slider_wavelength = Slider(
     ax_wavelength,
     "Wavelength (nm)",
-    500,
-    900,
+    300,
+    2000,
     valinit=594,
     valstep=1,
     color=SLIDER_COLOR,
