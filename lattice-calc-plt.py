@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import arc
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Button, TextBox
 
 # Visual theme
 FIG_BG = "#f5f7fb"
@@ -10,7 +10,9 @@ GRID_COLOR = "#8a94a6"
 DEPTH_COLOR = "#2a6fbb"
 AXIAL_COLOR = "#d1495b"
 SLIDER_BG = "#e9edf5"
-SLIDER_COLOR = "#4a6fa5"
+BUTTON_COLOR = "#d7dfed"
+BUTTON_HOVER = "#c7d3e8"
+TEXTBOX_FG = "#1f2a44"
 
 # Physical constants
 eps0 = 8.8541878128e-12  # F/m
@@ -115,50 +117,117 @@ fig.suptitle("Optical Lattice Explorer", fontsize=16, fontweight="bold", y=0.975
 fig.subplots_adjust(left=0.12, right=0.95, top=0.93, bottom=0.22, hspace=0.35)
 draw_plots()
 
-# Create sliders for interactive adjustment
-ax_wavelength = plt.axes([0.16, 0.12, 0.72, 0.03], facecolor=SLIDER_BG)
-ax_waist = plt.axes([0.16, 0.07, 0.72, 0.03], facecolor=SLIDER_BG)
+controls = {
+    "wavelength_nm": {
+        "label": "Wavelength (nm)",
+        "min": 300.0,
+        "max": 2000.0,
+        "step": 1.0,
+        "value": wavelength0 * 1e9,
+        "y": 0.12,
+    },
+    "waist_um": {
+        "label": "Waist (µm)",
+        "min": 50.0,
+        "max": 1000.0,
+        "step": 10.0,
+        "value": waist0 * 1e6,
+        "y": 0.07,
+    },
+}
 
-slider_wavelength = Slider(
-    ax_wavelength,
-    "Wavelength (nm)",
-    300,
-    2000,
-    valinit=594,
-    valstep=1,
-    color=SLIDER_COLOR,
-    initcolor="none",
-)
-slider_waist = Slider(
-    ax_waist,
-    "Waist (µm)",
-    50,
-    1000,
-    valinit=250,
-    valstep=10,
-    color=SLIDER_COLOR,
-    initcolor="none",
-)
-
-slider_wavelength.label.set_fontsize(10)
-slider_waist.label.set_fontsize(10)
-slider_wavelength.valtext.set_fontsize(10)
-slider_waist.valtext.set_fontsize(10)
+text_sync_in_progress = False
 
 
-def update(val):
-    wavelength = slider_wavelength.val * 1e-9
-    waist = slider_waist.val * 1e-6
+def format_control_value(value, step):
+    if abs(step - round(step)) < 1e-12:
+        return f"{int(round(value))}"
+    decimals = max(0, int(np.ceil(-np.log10(step))))
+    return f"{value:.{decimals}f}"
+
+
+def snap_control_value(value, cfg):
+    snapped = round((value - cfg["min"]) / cfg["step"]) * cfg["step"] + cfg["min"]
+    return min(cfg["max"], max(cfg["min"], snapped))
+
+
+def update_from_controls():
+    wavelength = controls["wavelength_nm"]["value"] * 1e-9
+    waist = controls["waist_um"]["value"] * 1e-6
     ret = pol.getPolarizability(wavelength, units="SI")
     i_pol = float(ret[0]) + 0 * (3 / 6) * float(ret[1])
 
     compute_traces(wavelength, waist, i_pol)
     draw_plots()
-
     fig.canvas.draw_idle()
 
+def set_control_value(name, raw_value):
+    global text_sync_in_progress
+    cfg = controls[name]
+    cfg["value"] = snap_control_value(raw_value, cfg)
+    text_sync_in_progress = True
+    cfg["textbox"].set_val(format_control_value(cfg["value"], cfg["step"]))
+    text_sync_in_progress = False
+    update_from_controls()
 
-slider_wavelength.on_changed(update)
-slider_waist.on_changed(update)
+
+def make_text_submit_handler(name):
+    def _handler(text):
+        if text_sync_in_progress:
+            return
+        cfg = controls[name]
+        try:
+            raw_value = float(text)
+        except ValueError:
+            raw_value = cfg["value"]
+        set_control_value(name, raw_value)
+
+    return _handler
+
+
+def make_step_handler(name, direction):
+    def _handler(_event):
+        cfg = controls[name]
+        set_control_value(name, cfg["value"] + direction * cfg["step"])
+
+    return _handler
+
+
+for name, cfg in controls.items():
+    fig.text(
+        0.16,
+        cfg["y"] + 0.02,
+        cfg["label"],
+        fontsize=10,
+        color=TEXTBOX_FG,
+        ha="left",
+        va="center",
+    )
+
+    ax_box = plt.axes([0.56, cfg["y"], 0.15, 0.04], facecolor=SLIDER_BG)
+    ax_down = plt.axes([0.73, cfg["y"], 0.06, 0.04], facecolor=SLIDER_BG)
+    ax_up = plt.axes([0.81, cfg["y"], 0.06, 0.04], facecolor=SLIDER_BG)
+
+    textbox = TextBox(
+        ax_box,
+        "",
+        initial=format_control_value(cfg["value"], cfg["step"]),
+        textalignment="center",
+    )
+    textbox.label.set_visible(False)
+    textbox.text_disp.set_fontsize(10)
+    textbox.text_disp.set_color(TEXTBOX_FG)
+    textbox.on_submit(make_text_submit_handler(name))
+
+    btn_down = Button(ax_down, "▼", color=BUTTON_COLOR, hovercolor=BUTTON_HOVER)
+    btn_up = Button(ax_up, "▲", color=BUTTON_COLOR, hovercolor=BUTTON_HOVER)
+    btn_down.label.set_fontsize(9)
+    btn_up.label.set_fontsize(9)
+    btn_down.on_clicked(make_step_handler(name, -1))
+    btn_up.on_clicked(make_step_handler(name, 1))
+
+    cfg["textbox"] = textbox
+    cfg["btn_down"] = btn_down
+    cfg["btn_up"] = btn_up
 
 plt.show()
