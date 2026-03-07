@@ -1,4 +1,4 @@
-# lattice_calcs
+# LatticeCalcs
 
 Small utilities for Rubidium optical lattice calculations and visualization using ARC.
 
