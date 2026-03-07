@@ -1,18 +1,38 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import arc
-from matplotlib.widgets import Button, TextBox
+import sys
 
-# Visual theme
-FIG_BG = "#f5f7fb"
+import arc
+import numpy as np
+from matplotlib.figure import Figure
+
+try:
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QColor, QPainter
+    from PyQt6.QtWidgets import (
+        QApplication,
+        QDoubleSpinBox,
+        QFrame,
+        QGridLayout,
+        QHBoxLayout,
+        QLabel,
+        QMainWindow,
+        QSizePolicy,
+        QStyle,
+        QStyleOptionSpinBox,
+        QVBoxLayout,
+        QWidget,
+    )
+except ModuleNotFoundError as exc:
+    raise SystemExit(
+        "Missing GUI dependency. Install with: pip install PyQt6"
+    ) from exc
+
+# Plot palette
+FIG_BG = "#f6f8fc"
 AX_BG = "#ffffff"
 GRID_COLOR = "#8a94a6"
 DEPTH_COLOR = "#2a6fbb"
 AXIAL_COLOR = "#d1495b"
-SLIDER_BG = "#e9edf5"
-BUTTON_COLOR = "#d7dfed"
-BUTTON_HOVER = "#c7d3e8"
-TEXTBOX_FG = "#1f2a44"
 
 # Physical constants
 eps0 = 8.8541878128e-12  # F/m
@@ -21,213 +41,287 @@ kB = 1.380649e-23  # J/K
 h = 6.62607015e-34  # J*s
 amu = 1.66053906660e-27  # kg
 
-atom = arc.Rubidium85()
-m_Rb85 = 84.911789738 * amu  # kg
-pol = arc.DynamicPolarizability(atom, 5, 0, 0.5)
 
-wavelength0 = 594.0e-9  # m
-pol.defineBasis(5, 15)
-ret = pol.getPolarizability(wavelength0, units="SI")
-i_pol = float(ret[0]) + 0 * (3 / 6) * float(ret[1])
+class LatticeModel:
+    def __init__(self):
+        self.atom = arc.Rubidium85()
+        self.m_rb85 = 84.911789738 * amu  # kg
+        self.pol = arc.DynamicPolarizability(self.atom, 5, 0, 0.5)
+        self.pol.defineBasis(5, 15)
+        self.powers = np.arange(0.05, 0.750, 0.05)
 
-waist0 = 250e-6  # m
+    def get_polarizability(self, wavelength_m):
+        ret = self.pol.getPolarizability(wavelength_m, units="SI")
+        return float(ret[0]) + 0 * (3 / 6) * float(ret[1])
 
-powers = np.arange(0.1, 1.5, 0.05)
-depths = np.zeros_like(powers)
-f_axs = np.zeros_like(powers)
+    def lattice_depth_and_freq(self, lam, w0, power, alpha_hz, power_is_total=False):
+        if power_is_total:
+            power = power / 2.0
 
+        k = 2 * np.pi / lam
+        u0_hz = 4 * alpha_hz * power / (np.pi * eps0 * c * w0**2)
+        u0_j = h * u0_hz
+        u_abs = abs(u0_j)
 
-def lattice_depth_and_freq(lam, w0, P, alpha_hz, power_is_total=False):
-    """
-    lam      : wavelength [m]
-    w0       : waist [m]
-    P        : power [W] (per beam unless power_is_total=True)
-    alpha_hz : polarizability [Hz * m^2 / V^2]
-    """
+        omega_x = np.sqrt(2 * u_abs * k**2 / self.m_rb85)
+        omega_r = np.sqrt(4 * u_abs / (self.m_rb85 * w0**2))
 
-    if power_is_total:
-        P = P / 2.0  # convert total power -> per-beam power
+        return {
+            "U0_uK": u0_j / kB * 1e6,
+            "f_axial_Hz": omega_x / (2 * np.pi),
+            "f_radial_Hz": omega_r / (2 * np.pi),
+        }
 
-    k = 2 * np.pi / lam
-
-    # Lattice depth
-    U0_Hz = 4 * alpha_hz * P / (np.pi * eps0 * c * w0**2)  # Hz
-    U0_J = h * U0_Hz  # J
-
-    # Use absolute depth for trap frequencies
-    Uabs = abs(U0_J)
-
-    # Axial lattice frequency
-    omega_x = np.sqrt(2 * Uabs * k**2 / m_Rb85)  # rad/s
-    f_x = omega_x / (2 * np.pi)  # Hz
-
-    # Radial frequency from Gaussian envelope
-    omega_r = np.sqrt(4 * Uabs / (m_Rb85 * w0**2))  # rad/s
-    f_r = omega_r / (2 * np.pi)  # Hz
-
-    return {
-        "U0_Hz": U0_Hz,
-        "U0_J": U0_J,
-        "U0_uK": U0_J / kB * 1e6,
-        "f_axial_Hz": f_x,
-        "f_radial_Hz": f_r,
-    }
+    def compute_traces(self, wavelength_m, waist_m, alpha_hz):
+        depths = np.zeros_like(self.powers)
+        f_axs = np.zeros_like(self.powers)
+        for i, power in enumerate(self.powers):
+            result = self.lattice_depth_and_freq(wavelength_m, waist_m, power, alpha_hz)
+            depths[i] = result["U0_uK"]
+            f_axs[i] = result["f_axial_Hz"] * 1e-3  # kHz
+        return depths, f_axs
 
 
-def compute_traces(wavelength, waist, alpha_hz):
-    for i, p in enumerate(powers):
-        lattice_params = lattice_depth_and_freq(
-            lam=wavelength,
-            w0=waist,  # waist [m]
-            P=p,  # power [W] per beam
-            alpha_hz=alpha_hz,
-        )
-        depths[i] = lattice_params["U0_uK"]
-        f_axs[i] = lattice_params["f_axial_Hz"] * 1e-3  # convert to kHz
+class PlotCanvas(FigureCanvasQTAgg):
+    def __init__(self, parent=None):
+        figure = Figure(figsize=(7.5, 8.5), facecolor=FIG_BG)
+        super().__init__(figure)
+        self.setParent(parent)
+        self.ax_depth, self.ax_freq = self.figure.subplots(2, 1)
+        self.figure.subplots_adjust(left=0.11, right=0.97, top=0.92, bottom=0.08, hspace=0.35)
+
+    def draw_traces(self, powers, depths, f_axs):
+        self.ax_depth.clear()
+        self.ax_depth.set_facecolor(AX_BG)
+        self.ax_depth.plot(powers, depths, color=DEPTH_COLOR, linewidth=2.4)
+        self.ax_depth.fill_between(powers, depths, color=DEPTH_COLOR, alpha=0.15)
+        self.ax_depth.set_title("Lattice Depth", fontsize=13, fontweight="semibold")
+        self.ax_depth.set_ylabel("Depth (uK)")
+        self.ax_depth.grid(True, color=GRID_COLOR, alpha=0.25, linewidth=0.8)
+        self.ax_depth.spines["top"].set_visible(False)
+        self.ax_depth.spines["right"].set_visible(False)
+
+        self.ax_freq.clear()
+        self.ax_freq.set_facecolor(AX_BG)
+        self.ax_freq.plot(powers, f_axs, color=AXIAL_COLOR, linewidth=2.4, label="Axial")
+        self.ax_freq.set_title("Trap Frequencies", fontsize=13, fontweight="semibold")
+        self.ax_freq.set_xlabel("Power (W)")
+        self.ax_freq.set_ylabel("Frequency (kHz)")
+        self.ax_freq.grid(True, color=GRID_COLOR, alpha=0.25, linewidth=0.8)
+        self.ax_freq.spines["top"].set_visible(False)
+        self.ax_freq.spines["right"].set_visible(False)
+        self.ax_freq.legend(frameon=False)
+
+        self.draw_idle()
 
 
-def draw_plots():
-    axs[0].clear()
-    axs[0].set_facecolor(AX_BG)
-    axs[0].plot(powers, depths, color=DEPTH_COLOR, linewidth=2.2)
-    axs[0].fill_between(powers, depths, color=DEPTH_COLOR, alpha=0.15)
-    axs[0].set_title("Lattice Depth", fontsize=13, fontweight="semibold")
-    axs[0].set_ylabel("Depth (µK)")
-    axs[0].grid(True, color=GRID_COLOR, alpha=0.25, linewidth=0.8)
-    axs[0].spines["top"].set_visible(False)
-    axs[0].spines["right"].set_visible(False)
-
-    axs[1].clear()
-    axs[1].set_facecolor(AX_BG)
-    axs[1].plot(powers, f_axs, color=AXIAL_COLOR, linewidth=2.2, label="Axial")
-    axs[1].set_title("Trap Frequencies", fontsize=13, fontweight="semibold")
-    axs[1].set_xlabel("Power (W)")
-    axs[1].set_ylabel("Frequency (kHz)")
-    axs[1].grid(True, color=GRID_COLOR, alpha=0.25, linewidth=0.8)
-    axs[1].spines["top"].set_visible(False)
-    axs[1].spines["right"].set_visible(False)
-    axs[1].legend(frameon=False)
-
-
-compute_traces(wavelength0, waist0, i_pol)
-
-fig, axs = plt.subplots(2, 1, figsize=(6, 10))
-fig.patch.set_facecolor(FIG_BG)
-fig.suptitle("Optical Lattice Explorer", fontsize=16, fontweight="bold", y=0.975)
-fig.subplots_adjust(left=0.12, right=0.95, top=0.93, bottom=0.22, hspace=0.35)
-draw_plots()
-
-controls = {
-    "wavelength_nm": {
-        "label": "Wavelength (nm)",
-        "min": 300.0,
-        "max": 2000.0,
-        "step": 1.0,
-        "value": wavelength0 * 1e9,
-        "y": 0.12,
-    },
-    "waist_um": {
-        "label": "Waist (µm)",
-        "min": 50.0,
-        "max": 1000.0,
-        "step": 10.0,
-        "value": waist0 * 1e6,
-        "y": 0.07,
-    },
-}
-
-text_sync_in_progress = False
-
-
-def format_control_value(value, step):
-    if abs(step - round(step)) < 1e-12:
-        return f"{int(round(value))}"
-    decimals = max(0, int(np.ceil(-np.log10(step))))
-    return f"{value:.{decimals}f}"
-
-
-def snap_control_value(value, cfg):
-    snapped = round((value - cfg["min"]) / cfg["step"]) * cfg["step"] + cfg["min"]
-    return min(cfg["max"], max(cfg["min"], snapped))
-
-
-def update_from_controls():
-    wavelength = controls["wavelength_nm"]["value"] * 1e-9
-    waist = controls["waist_um"]["value"] * 1e-6
-    ret = pol.getPolarizability(wavelength, units="SI")
-    i_pol = float(ret[0]) + 0 * (3 / 6) * float(ret[1])
-
-    compute_traces(wavelength, waist, i_pol)
-    draw_plots()
-    fig.canvas.draw_idle()
-
-def set_control_value(name, raw_value):
-    global text_sync_in_progress
-    cfg = controls[name]
-    cfg["value"] = snap_control_value(raw_value, cfg)
-    text_sync_in_progress = True
-    cfg["textbox"].set_val(format_control_value(cfg["value"], cfg["step"]))
-    text_sync_in_progress = False
-    update_from_controls()
-
-
-def make_text_submit_handler(name):
-    def _handler(text):
-        if text_sync_in_progress:
+class ArrowSpinBox(QDoubleSpinBox):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.buttonSymbols() == QDoubleSpinBox.ButtonSymbols.NoButtons:
             return
-        cfg = controls[name]
-        try:
-            raw_value = float(text)
-        except ValueError:
-            raw_value = cfg["value"]
-        set_control_value(name, raw_value)
 
-    return _handler
+        option = QStyleOptionSpinBox()
+        self.initStyleOption(option)
+
+        up_rect = self.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxUp,
+            self,
+        )
+        down_rect = self.style().subControlRect(
+            QStyle.ComplexControl.CC_SpinBox,
+            option,
+            QStyle.SubControl.SC_SpinBoxDown,
+            self,
+        )
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        painter.setPen(QColor("#31446e"))
+        painter.drawText(up_rect, int(Qt.AlignmentFlag.AlignCenter), "^")
+        painter.drawText(down_rect, int(Qt.AlignmentFlag.AlignCenter), "v")
+        painter.end()
 
 
-def make_step_handler(name, direction):
-    def _handler(_event):
-        cfg = controls[name]
-        set_control_value(name, cfg["value"] + direction * cfg["step"])
+class LatticeWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.model = LatticeModel()
+        self.setWindowTitle("Optical Lattice Explorer")
+        self.resize(1180, 820)
+        self.setMinimumSize(980, 700)
+        self._apply_style()
+        self._build_ui()
+        self.refresh_plots()
 
-    return _handler
+    def _apply_style(self):
+        self.setStyleSheet(
+            """
+            QMainWindow {
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #eef2fb, stop:1 #e9edf8
+                );
+            }
+            QFrame#PanelCard {
+                background: #ffffff;
+                border: 1px solid #dce3f3;
+                border-radius: 14px;
+            }
+            QLabel#AppTitle {
+                color: #1f2a44;
+                font-size: 26px;
+                font-weight: 700;
+            }
+            QLabel#SectionTitle {
+                color: #2a3658;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            QLabel#MetaLabel {
+                color: #5b6b87;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            QLabel#MetaValue {
+                color: #223252;
+                font-size: 14px;
+                font-weight: 600;
+            }
+            QLabel#ControlLabel {
+                color: #2a3658;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QDoubleSpinBox {
+                background: #f5f7fc;
+                border: 1px solid #cfd8ec;
+                border-radius: 10px;
+                padding: 6px 8px;
+                min-height: 34px;
+                font-size: 14px;
+                color: #1f2a44;
+            }
+            QDoubleSpinBox:focus {
+                border: 1px solid #6a8fd8;
+                background: #ffffff;
+            }
+            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                width: 24px;
+                border: none;
+                background: #e7edf9;
+                margin: 1px;
+                border-radius: 6px;
+            }
+            QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+                background: #d7e2f6;
+            }
+            """
+        )
+
+    def _build_ui(self):
+        root = QWidget()
+        self.setCentralWidget(root)
+        root_layout = QHBoxLayout(root)
+        root_layout.setContentsMargins(20, 20, 20, 20)
+        root_layout.setSpacing(16)
+
+        left_panel = QFrame()
+        left_panel.setObjectName("PanelCard")
+        left_panel.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        left_panel.setMinimumWidth(300)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(18, 18, 18, 18)
+        left_layout.setSpacing(12)
+
+        title = QLabel("Optical Lattice Explorer")
+        title.setObjectName("AppTitle")
+        title.setWordWrap(True)
+        left_layout.addWidget(title)
+
+        controls_title = QLabel("Controls")
+        controls_title.setObjectName("SectionTitle")
+        left_layout.addWidget(controls_title)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(10)
+
+        wavelength_label = QLabel("Wavelength (nm)")
+        wavelength_label.setObjectName("ControlLabel")
+        wavelength_label.setMinimumWidth(130)
+        self.wavelength_spin = ArrowSpinBox()
+        self.wavelength_spin.setRange(300.0, 2000.0)
+        self.wavelength_spin.setSingleStep(1.0)
+        self.wavelength_spin.setDecimals(0)
+        self.wavelength_spin.setValue(594.0)
+
+        waist_label = QLabel("Waist (um)")
+        waist_label.setObjectName("ControlLabel")
+        waist_label.setMinimumWidth(130)
+        self.waist_spin = ArrowSpinBox()
+        self.waist_spin.setRange(50.0, 1000.0)
+        self.waist_spin.setSingleStep(10.0)
+        self.waist_spin.setDecimals(0)
+        self.waist_spin.setValue(250.0)
+
+        grid.addWidget(wavelength_label, 0, 0)
+        grid.addWidget(self.wavelength_spin, 0, 1)
+        grid.addWidget(waist_label, 1, 0)
+        grid.addWidget(self.waist_spin, 1, 1)
+        left_layout.addLayout(grid)
+
+        self.alpha_label = QLabel("...")
+        self.alpha_label.setObjectName("MetaValue")
+
+        left_layout.addWidget(self._meta_row("Polarizability (SI)", self.alpha_label))
+        left_layout.addStretch(1)
+
+        plot_card = QFrame()
+        plot_card.setObjectName("PanelCard")
+        plot_layout = QVBoxLayout(plot_card)
+        plot_layout.setContentsMargins(12, 12, 12, 12)
+        plot_layout.setSpacing(8)
+        self.canvas = PlotCanvas(plot_card)
+        plot_layout.addWidget(self.canvas)
+
+        root_layout.addWidget(left_panel, stretch=0)
+        root_layout.addWidget(plot_card, stretch=1)
+
+        self.wavelength_spin.valueChanged.connect(self.refresh_plots)
+        self.waist_spin.valueChanged.connect(self.refresh_plots)
+
+    def _meta_row(self, label_text, value_widget):
+        row = QFrame()
+        row_layout = QVBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(2)
+        label = QLabel(label_text)
+        label.setObjectName("MetaLabel")
+        row_layout.addWidget(label)
+        row_layout.addWidget(value_widget)
+        return row
+
+    def refresh_plots(self):
+        wavelength_m = self.wavelength_spin.value() * 1e-9
+        waist_m = self.waist_spin.value() * 1e-6
+
+        alpha_hz = self.model.get_polarizability(wavelength_m)
+        depths, f_axs = self.model.compute_traces(wavelength_m, waist_m, alpha_hz)
+        self.canvas.draw_traces(self.model.powers, depths, f_axs)
+
+        self.alpha_label.setText(f"{alpha_hz:.3e}")
 
 
-for name, cfg in controls.items():
-    fig.text(
-        0.16,
-        cfg["y"] + 0.02,
-        cfg["label"],
-        fontsize=10,
-        color=TEXTBOX_FG,
-        ha="left",
-        va="center",
-    )
+def main():
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    window = LatticeWindow()
+    window.show()
+    sys.exit(app.exec())
 
-    ax_box = plt.axes([0.56, cfg["y"], 0.15, 0.04], facecolor=SLIDER_BG)
-    ax_down = plt.axes([0.73, cfg["y"], 0.06, 0.04], facecolor=SLIDER_BG)
-    ax_up = plt.axes([0.81, cfg["y"], 0.06, 0.04], facecolor=SLIDER_BG)
 
-    textbox = TextBox(
-        ax_box,
-        "",
-        initial=format_control_value(cfg["value"], cfg["step"]),
-        textalignment="center",
-    )
-    textbox.label.set_visible(False)
-    textbox.text_disp.set_fontsize(10)
-    textbox.text_disp.set_color(TEXTBOX_FG)
-    textbox.on_submit(make_text_submit_handler(name))
-
-    btn_down = Button(ax_down, "▼", color=BUTTON_COLOR, hovercolor=BUTTON_HOVER)
-    btn_up = Button(ax_up, "▲", color=BUTTON_COLOR, hovercolor=BUTTON_HOVER)
-    btn_down.label.set_fontsize(9)
-    btn_up.label.set_fontsize(9)
-    btn_down.on_clicked(make_step_handler(name, -1))
-    btn_up.on_clicked(make_step_handler(name, 1))
-
-    cfg["textbox"] = textbox
-    cfg["btn_down"] = btn_down
-    cfg["btn_up"] = btn_up
-
-plt.show()
+if __name__ == "__main__":
+    main()
