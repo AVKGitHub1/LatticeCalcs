@@ -27,6 +27,30 @@ except ModuleNotFoundError as exc:
         "Missing GUI dependency. Install with: pip install PyQt6"
     ) from exc
 
+#Choices
+ATOM = "Rb85"
+F = 3
+mF = 3
+q = 0
+
+def return_atom():
+    if ATOM == "Rb85":
+        return arc.Rubidium85(), 84.911789738 * amu
+    elif ATOM == "Rb87":
+        return arc.Rubidium87(), 86.909180527 * amu
+    else:
+        print(f"Unknown atom choice: {ATOM}. Defaulting to Rb85.")
+        return arc.Rubidium85(), 84.911789738 * amu
+def check_validity():
+    if F < 0 or mF < -F or mF > F:
+        raise ValueError(f"Invalid quantum numbers: F={F}, mF={mF}. Must satisfy -F <= mF <= F.")
+    if q not in [-1, 0, 1]:
+        raise ValueError(f"Invalid polarization q={q}. Must be -1, 0, or 1.")
+    if ATOM == "Rb85" and F not in [2, 3]:
+        raise ValueError(f"Invalid F={F} for Rb85. Allowed values are 2 or 3.")
+    if ATOM == "Rb87" and F not in [1, 2]:
+        raise ValueError(f"Invalid F={F} for Rb87. Allowed values are 1 or 2.")
+
 # Plot palette
 FIG_BG = "#f6f8fc"
 AX_BG = "#ffffff"
@@ -44,15 +68,15 @@ amu = 1.66053906660e-27  # kg
 
 class LatticeModel:
     def __init__(self):
-        self.atom = arc.Rubidium85()
-        self.m_rb85 = 84.911789738 * amu  # kg
+        self.atom, self.m_atom = return_atom()
+        check_validity()
         self.pol = arc.DynamicPolarizability(self.atom, 5, 0, 0.5)
         self.pol.defineBasis(5, 15)
         self.powers = np.arange(0.05, 0.750, 0.05)
 
     def get_polarizability(self, wavelength_m):
         ret = self.pol.getPolarizability(wavelength_m, units="SI")
-        return float(ret[0]) + 0 * (3 / 6) * float(ret[1])
+        return float(ret[0]) + q * (mF / F) * float(ret[1])
 
     def lattice_depth_and_freq(self, lam, w0, power, alpha_hz, power_is_total=False):
         if power_is_total:
@@ -63,8 +87,8 @@ class LatticeModel:
         u0_j = h * u0_hz
         u_abs = abs(u0_j)
 
-        omega_x = np.sqrt(2 * u_abs * k**2 / self.m_rb85)
-        omega_r = np.sqrt(4 * u_abs / (self.m_rb85 * w0**2))
+        omega_x = np.sqrt(2 * u_abs * k**2 / self.m_atom)
+        omega_r = np.sqrt(4 * u_abs / (self.m_atom * w0**2))
 
         return {
             "U0_uK": u0_j / kB * 1e6,
