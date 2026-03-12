@@ -4,6 +4,8 @@ import arc
 import numpy as np
 from matplotlib.figure import Figure
 
+from hf_pol import HFPolarizabilityCalculator
+
 try:
     from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
     from PyQt6.QtCore import Qt
@@ -74,13 +76,18 @@ class DipoleModel:
     def __init__(self):
         self.atom, self.m_atom = return_atom()
         check_validity()
-        self.pol = arc.DynamicPolarizability(self.atom, 5, 0, 0.5)
-        self.pol.defineBasis(5, 15)
         self.powers = np.arange(0.2, 1.5, 0.05)
 
     def get_polarizability(self, wavelength_m):
-        ret = self.pol.getPolarizability(wavelength_m, units="SI")
-        return float(ret[0]) + q * (mF / F) * float(ret[1])
+        hfpol = HFPolarizabilityCalculator(
+            atom_name=ATOM,
+            n=5,
+            L=0,
+            J=0.5,
+            F=F,
+            mF=mF,
+            q=q)
+        return hfpol.calculate(wavelength_m)
 
     def dipole_depth_and_freq(self, lam, w0, power, alpha_hz):
         # Gaussian beam trap depth at focus (single beam).
