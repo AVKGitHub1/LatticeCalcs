@@ -1,6 +1,5 @@
 import sys
 
-import arc
 import numpy as np
 from matplotlib.figure import Figure
 
@@ -35,24 +34,6 @@ F = 3
 mF = 3
 q = 0
 
-def return_atom():
-    if ATOM == "Rb85":
-        return arc.Rubidium85(), 84.911789738 * amu
-    elif ATOM == "Rb87":
-        return arc.Rubidium87(), 86.909180527 * amu
-    else:
-        print(f"Unknown atom choice: {ATOM}. Defaulting to Rb85.")
-        return arc.Rubidium85(), 84.911789738 * amu
-def check_validity():
-    if F < 0 or np.abs(mF) > F:
-        raise ValueError(f"Invalid quantum numbers: F={F}, mF={mF}. Must satisfy F>=0 and -F <= mF <= F.")
-    if q not in [-1, 0, 1]:
-        raise ValueError(f"Invalid polarization q={q}. Must be -1, 0, or 1.")
-    if ATOM == "Rb85" and F not in [2, 3]:
-        raise ValueError(f"Invalid F={F} for Rb85. Allowed values are 2 or 3.")
-    if ATOM == "Rb87" and F not in [1, 2]:
-        raise ValueError(f"Invalid F={F} for Rb87. Allowed values are 1 or 2.")
-
 # Plot palette
 FIG_BG = "#f6f8fc"
 AX_BG = "#ffffff"
@@ -65,17 +46,11 @@ eps0 = 8.8541878128e-12  # F/m
 c = 299792458.0  # m/s
 kB = 1.380649e-23  # J/K
 h = 6.62607015e-34  # J*s
-amu = 1.66053906660e-27  # kg
 
 
 class LatticeModel:
     def __init__(self):
-        self.atom, self.m_atom = return_atom()
-        check_validity()
-        self.powers = np.arange(0.05, 0.750, 0.05)
-
-    def get_polarizability(self, wavelength_m):
-        hfpol = HFPolarizabilityCalculator(
+        self.hfpol = HFPolarizabilityCalculator(
             atom_name=ATOM,
             n=5,
             L=0,
@@ -83,7 +58,11 @@ class LatticeModel:
             F=F,
             mF=mF,
             q=q)
-        return hfpol.calculate(wavelength_m)
+        self.m_atom = self.hfpol.get_atom_mass()
+        self.powers = np.arange(0.05, 0.750, 0.05)
+
+    def get_polarizability(self, wavelength_m):
+        return self.hfpol.calculate(wavelength_m)
 
     def lattice_depth_and_freq(self, lam, w0, power, alpha_hz, power_is_total=False):
         if power_is_total:

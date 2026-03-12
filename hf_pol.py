@@ -20,6 +20,9 @@ class HFPolarizabilityCalculator:
         self.pol = arc.DynamicPolarizability(self.atom, int(self.n), int(self.L), self.J)
         self.pol.defineBasis(int(5), int(15))
     
+    def get_atom_mass(self):
+        return self.atom.mass
+
     def _return_atom(self):
         if self.atom_name == "Rb85":
             return arc.Rubidium85()
@@ -34,10 +37,6 @@ class HFPolarizabilityCalculator:
             raise ValueError(f"Invalid quantum numbers: F={self.F}, mF={self.mF}. Must satisfy F>=0 and -F <= mF <= F.")
         if self.q not in [-1, 0, 1]:
             raise ValueError(f"Invalid polarization q={self.q}. Must be -1, 0, or 1.")
-        if self.atom_name == "Rb85" and self.F not in [2, 3]:
-            raise ValueError(f"Invalid F={self.F} for Rb85. Allowed values are 2 or 3.")
-        if self.atom_name == "Rb87" and self.F not in [1, 2]:
-            raise ValueError(f"Invalid F={self.F} for Rb87. Allowed values are 1 or 2.")
         # Allowed hyperfine values for given I,J
         Fmin = abs(self.atom.I - self.J)
         Fmax = self.atom.I + self.J
