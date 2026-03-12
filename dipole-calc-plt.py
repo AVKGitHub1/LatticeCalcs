@@ -30,6 +30,9 @@ except ModuleNotFoundError as exc:
 
 # Choices
 ATOM = "Rb85"
+n = 5
+L = 0
+J = 0.5
 F = 3
 mF = 3
 q = 0
@@ -50,15 +53,21 @@ kB = 1.380649e-23  # J/K
 h = 6.62607015e-34  # J*s
 
 class DipoleModel:
-    def __init__(self):
+    def __init__(self, n=n, L=L, J=J, F=F, mF=mF, q=q):
+        self.n = n
+        self.L = L
+        self.J = J
+        self.F = F
+        self.mF = mF
+        self.q = q
         self.hfpol = HFPolarizabilityCalculator(
             atom_name=ATOM,
-            n=5,
-            L=0,
-            J=0.5,
-            F=F,
-            mF=mF,
-            q=q)
+            n=self.n,
+            L=self.L,
+            J=self.J,
+            F=self.F,
+            mF=self.mF,
+            q=self.q)
         self.m_atom = self.hfpol.get_atom_mass()
         self.powers = np.arange(0.2, 1.5, 0.05)
 
