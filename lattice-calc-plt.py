@@ -44,8 +44,8 @@ def return_atom():
         print(f"Unknown atom choice: {ATOM}. Defaulting to Rb85.")
         return arc.Rubidium85(), 84.911789738 * amu
 def check_validity():
-    if F < 0 or mF < -F or mF > F:
-        raise ValueError(f"Invalid quantum numbers: F={F}, mF={mF}. Must satisfy -F <= mF <= F.")
+    if F < 0 or np.abs(mF) > F:
+        raise ValueError(f"Invalid quantum numbers: F={F}, mF={mF}. Must satisfy F>=0 and -F <= mF <= F.")
     if q not in [-1, 0, 1]:
         raise ValueError(f"Invalid polarization q={q}. Must be -1, 0, or 1.")
     if ATOM == "Rb85" and F not in [2, 3]:

@@ -15,9 +15,10 @@ class HFPolarizabilityCalculator:
         self.J = J
         self.F = F
         self.mF = mF
-        self.q = q
-        self.pol = arc.DynamicPolarizability(self.atom, self.n, self.L, self.J)
-        self.pol.defineBasis(5, 15)
+        self.q = int(q)
+        self.check_validity()
+        self.pol = arc.DynamicPolarizability(self.atom, int(self.n), int(self.L), self.J)
+        self.pol.defineBasis(int(5), int(15))
     
     def _return_atom(self):
         if self.atom_name == "Rb85":
@@ -27,6 +28,21 @@ class HFPolarizabilityCalculator:
         else:
             print(f"Unknown atom choice: {self.atom_name}. Defaulting to Rb85.")
             return arc.Rubidium85()
+    
+    def check_validity(self):
+        if self.F < 0 or np.abs(self.mF) > self.F:
+            raise ValueError(f"Invalid quantum numbers: F={self.F}, mF={self.mF}. Must satisfy F>=0 and -F <= mF <= F.")
+        if self.q not in [-1, 0, 1]:
+            raise ValueError(f"Invalid polarization q={self.q}. Must be -1, 0, or 1.")
+        if self.atom_name == "Rb85" and self.F not in [2, 3]:
+            raise ValueError(f"Invalid F={self.F} for Rb85. Allowed values are 2 or 3.")
+        if self.atom_name == "Rb87" and self.F not in [1, 2]:
+            raise ValueError(f"Invalid F={self.F} for Rb87. Allowed values are 1 or 2.")
+        # Allowed hyperfine values for given I,J
+        Fmin = abs(self.atom.I - self.J)
+        Fmax = self.atom.I + self.J
+        if self.F < Fmin - 1e-12 or self.F > Fmax + 1e-12:
+            raise ValueError(f"F must lie in [{Fmin}, {Fmax}] for I={self.atom.I}, J={self.J}")
 
     def _minus_one_pow(self, x):
         """
@@ -36,13 +52,14 @@ class HFPolarizabilityCalculator:
         return -1.0 if (n % 2) else 1.0
 
 
-    def _arc_to_irreducible(self, J, a_scalar, a_vector, a_tensor):
+    def _arc_to_irreducible(self, a_scalar, a_vector, a_tensor):
         """
         Convert ARC's fine-structure scalar/vector/tensor polarizabilities
         into irreducible rank-K components alpha^(K).
 
         ARC returns conventional scalar/vector/tensor components.
         """
+        J = self.J
         # rank-0
         alpha0_irred = math.sqrt(3.0 * (2.0 * J + 1.0)) * a_scalar
 
@@ -65,9 +82,9 @@ class HFPolarizabilityCalculator:
         return alpha0_irred, alpha1_irred, alpha2_irred
 
 
-    def hyperfine_polarizability_from_arc(self, J, F, mF, q,
+    def hyperfine_polarizability_from_arc(self,
                                         a_scalar, a_vector, a_tensor, a_core,
-                                        I=2.5):
+                                    ):
         """
         Effective polarizability for a hyperfine Zeeman state |F, mF>
         for pure spherical polarization q = -1, 0, +1.
@@ -96,24 +113,16 @@ class HFPolarizabilityCalculator:
             alpha_F_tensor
             alpha_total
         """
-        if q not in (-1, 0, 1):
-            raise ValueError("q must be -1, 0, or +1")
+        J, F, mF, q = self.J, self.F, self.mF, self.q
 
-        if abs(mF) > F:
-            raise ValueError("|mF| must be <= F")
-
-        # Allowed hyperfine values for given I,J
-        Fmin = abs(I - J)
-        Fmax = I + J
-        if F < Fmin - 1e-12 or F > Fmax + 1e-12:
-            raise ValueError(f"F must lie in [{Fmin}, {Fmax}] for I={I}, J={J}")
+        I = float(self.atom.I)
 
         # Total scalar fine-structure polarizability includes the core
         alphaJ_scalar_total = a_scalar + a_core
 
         # Convert ARC vector/tensor conventions to irreducible components
         # Keep scalar separately since alpha_F^S = alpha_J^S in this approximation.
-        _, alpha1_irred, alpha2_irred = self._arc_to_irreducible(J, a_scalar, a_vector, a_tensor)
+        _, alpha1_irred, alpha2_irred = self._arc_to_irreducible(a_scalar, a_vector, a_tensor)
 
         phase = self._minus_one_pow(J + I + F)
 
@@ -147,11 +156,6 @@ class HFPolarizabilityCalculator:
                 * alpha2_irred
             )
 
-        # For pure q:
-        # q = -1 -> sigma-
-        # q =  0 -> pi
-        # q = +1 -> sigma+
-        #
         # Using C = |u_-1|^2 - |u_+1|^2 = -q
         # and D = 1 - 3|u_0|^2 = 1 for sigma±, -2 for pi
         C = -float(q)
@@ -182,7 +186,6 @@ class HFPolarizabilityCalculator:
         a_tensor = float(self.arc_results[2])
         a_core = float(self.arc_results[3])
         self.alphas = self.hyperfine_polarizability_from_arc(
-            self.J, self.F, self.mF, self.q,
             a_scalar, a_vector, a_tensor, a_core
         )
         return self.alphas['alpha_total']

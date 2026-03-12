@@ -46,8 +46,8 @@ def return_atom():
 
 
 def check_validity():
-    if F < 0 or mF < -F or mF > F:
-        raise ValueError(f"Invalid quantum numbers: F={F}, mF={mF}. Must satisfy -F <= mF <= F.")
+    if F < 0 or np.abs(mF) > F:
+        raise ValueError(f"Invalid quantum numbers: F={F}, mF={mF}. Must satisfy F>=0 and -F <= mF <= F.")
     if q not in [-1, 0, 1]:
         raise ValueError(f"Invalid polarization q={q}. Must be -1, 0, or 1.")
     if ATOM == "Rb85" and F not in [2, 3]:
@@ -295,7 +295,7 @@ class DipoleWindow(QMainWindow):
         self.wavelength_spin.setRange(300.0, 2000.0)
         self.wavelength_spin.setSingleStep(1.0)
         self.wavelength_spin.setDecimals(0)
-        self.wavelength_spin.setValue(1064.0)
+        self.wavelength_spin.setValue(830.0)
 
         waist_label = QLabel("Waist (um)")
         waist_label.setObjectName("ControlLabel")
@@ -304,7 +304,7 @@ class DipoleWindow(QMainWindow):
         self.waist_spin.setRange(10.0, 1000.0)
         self.waist_spin.setSingleStep(5.0)
         self.waist_spin.setDecimals(0)
-        self.waist_spin.setValue(50.0)
+        self.waist_spin.setValue(250.0)
 
         grid.addWidget(wavelength_label, 0, 0)
         grid.addWidget(self.wavelength_spin, 0, 1)
