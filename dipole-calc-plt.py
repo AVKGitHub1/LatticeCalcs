@@ -69,8 +69,6 @@ class DipoleModel:
             mF=self.mF,
             q=self.q)
         self.m_atom = self.hfpol.get_atom_mass()
-        self.powers = np.arange(0.2, 1.5, 0.05)
-
     def get_polarizability(self, wavelength_m):
         return self.hfpol.calculate(wavelength_m)
 
@@ -93,11 +91,11 @@ class DipoleModel:
             "zR_mm": z_r * 1e3,
         }
 
-    def compute_traces(self, wavelength_m, waist_m, alpha_hz):
-        depths = np.zeros_like(self.powers)
-        f_rads = np.zeros_like(self.powers)
-        f_axs = np.zeros_like(self.powers)
-        for i, power in enumerate(self.powers):
+    def compute_traces(self, wavelength_m, waist_m, alpha_hz, powers):
+        depths = np.zeros_like(powers)
+        f_rads = np.zeros_like(powers)
+        f_axs = np.zeros_like(powers)
+        for i, power in enumerate(powers):
             result = self.dipole_depth_and_freq(wavelength_m, waist_m, power, alpha_hz)
             depths[i] = result["U0_uK"]
             f_rads[i] = result["f_radial_Hz"] * 1e-3  # kHz
@@ -127,7 +125,7 @@ class PlotCanvas(FigureCanvasQTAgg):
         self.ax_freq.clear()
         self.ax_freq.set_facecolor(AX_BG)
         self.ax_freq.plot(powers, f_rads, color=RADIAL_COLOR, linewidth=2.4, label="Radial")
-        self.ax_freq.plot(powers, f_axs, color=AXIAL_COLOR, linewidth=2.4, label="Axial")
+        # self.ax_freq.plot(powers, f_axs, color=AXIAL_COLOR, linewidth=2.4, label="Axial")
         self.ax_freq.set_title("Trap Frequencies", fontsize=13, fontweight="semibold")
         self.ax_freq.set_xlabel("Power (W)")
         self.ax_freq.set_ylabel("Frequency (kHz)")
@@ -291,10 +289,32 @@ class DipoleWindow(QMainWindow):
         self.waist_spin.setDecimals(0)
         self.waist_spin.setValue(250.0)
 
+        min_power_label = QLabel("Min Power (W)")
+        min_power_label.setObjectName("ControlLabel")
+        min_power_label.setMinimumWidth(130)
+        self.min_power_spin = ArrowSpinBox()
+        self.min_power_spin.setRange(0.01, 50.0)
+        self.min_power_spin.setSingleStep(0.05)
+        self.min_power_spin.setDecimals(2)
+        self.min_power_spin.setValue(0.2)
+
+        max_power_label = QLabel("Max Power (W)")
+        max_power_label.setObjectName("ControlLabel")
+        max_power_label.setMinimumWidth(130)
+        self.max_power_spin = ArrowSpinBox()
+        self.max_power_spin.setRange(0.02, 50.0)
+        self.max_power_spin.setSingleStep(0.05)
+        self.max_power_spin.setDecimals(2)
+        self.max_power_spin.setValue(2.5)
+
         grid.addWidget(wavelength_label, 0, 0)
         grid.addWidget(self.wavelength_spin, 0, 1)
         grid.addWidget(waist_label, 1, 0)
         grid.addWidget(self.waist_spin, 1, 1)
+        grid.addWidget(min_power_label, 2, 0)
+        grid.addWidget(self.min_power_spin, 2, 1)
+        grid.addWidget(max_power_label, 3, 0)
+        grid.addWidget(self.max_power_spin, 3, 1)
         left_layout.addLayout(grid)
 
         self.alpha_label = QLabel("...")
@@ -319,6 +339,26 @@ class DipoleWindow(QMainWindow):
 
         self.wavelength_spin.valueChanged.connect(self.refresh_plots)
         self.waist_spin.valueChanged.connect(self.refresh_plots)
+        self.min_power_spin.valueChanged.connect(self._handle_power_bounds_change)
+        self.max_power_spin.valueChanged.connect(self._handle_power_bounds_change)
+
+    def _handle_power_bounds_change(self):
+        min_power = self.min_power_spin.value()
+        max_power = self.max_power_spin.value()
+        step = self.min_power_spin.singleStep()
+
+        if min_power >= max_power:
+            sender = self.sender()
+            if sender is self.min_power_spin:
+                self.max_power_spin.blockSignals(True)
+                self.max_power_spin.setValue(min_power + step)
+                self.max_power_spin.blockSignals(False)
+            else:
+                self.min_power_spin.blockSignals(True)
+                self.min_power_spin.setValue(max(max_power - step, self.min_power_spin.minimum()))
+                self.min_power_spin.blockSignals(False)
+
+        self.refresh_plots()
 
     def _meta_row(self, label_text, value_widget):
         row = QFrame()
@@ -334,15 +374,21 @@ class DipoleWindow(QMainWindow):
     def refresh_plots(self):
         wavelength_m = self.wavelength_spin.value() * 1e-9
         waist_m = self.waist_spin.value() * 1e-6
+        min_power = self.min_power_spin.value()
+        max_power = self.max_power_spin.value()
+        power_step = self.min_power_spin.singleStep()
+
+        powers = np.arange(min_power, max_power + 0.5 * power_step, power_step)
+        powers = np.round(powers, 6)
 
         alpha_hz = self.model.get_polarizability(wavelength_m)
-        depths, f_rads, f_axs = self.model.compute_traces(wavelength_m, waist_m, alpha_hz)
-        self.canvas.draw_traces(self.model.powers, depths, f_rads, f_axs)
+        depths, f_rads, f_axs = self.model.compute_traces(wavelength_m, waist_m, alpha_hz, powers)
+        self.canvas.draw_traces(powers, depths, f_rads, f_axs)
 
         params = self.model.dipole_depth_and_freq(
             wavelength_m,
             waist_m,
-            self.model.powers[-1],
+            powers[-1],
             alpha_hz,
         )
         self.alpha_label.setText(f"{alpha_hz:.3e}")
