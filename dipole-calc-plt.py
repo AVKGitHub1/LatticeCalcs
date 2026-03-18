@@ -45,12 +45,14 @@ GRID_COLOR = "#8a94a6"
 DEPTH_COLOR = "#2a6fbb"
 RADIAL_COLOR = "#17643d"
 AXIAL_COLOR = "#d1495b"
+SCATTER_COLOR = "#7f5539"
 
 # Physical constants
 eps0 = 8.8541878128e-12  # F/m
 c = 299792458.0  # m/s
 kB = 1.380649e-23  # J/K
 h = 6.62607015e-34  # J*s
+hbar = h / (2 * np.pi)
 
 class DipoleModel:
     def __init__(self, n=n, L=L, J=J, F=F, mF=mF, q=q):
@@ -91,27 +93,44 @@ class DipoleModel:
             "zR_mm": z_r * 1e3,
         }
 
+    def estimate_scattering_rate(self, lam, w0, power, alpha_hz):
+        # Peak intensity at Gaussian focus for a single beam.
+        intensity_peak = 2 * power / (np.pi * w0**2)
+
+        # ARC "SI" polarizability used here is in Hz/(V/m)^2; convert to SI dipole units.
+        alpha_si = h * alpha_hz
+        k = 2 * np.pi / lam
+        omega = 2 * np.pi * c / lam
+
+        # Rayleigh-scattering estimate from dipole cross-section:
+        # sigma = k^4 |alpha|^2 / (6*pi*eps0^2),  Gamma = sigma*I/(hbar*omega)
+        sigma = (k**4) * (abs(alpha_si) ** 2) / (6 * np.pi * eps0**2)
+        return sigma * intensity_peak / (hbar * omega)
+
     def compute_traces(self, wavelength_m, waist_m, alpha_hz, powers):
         depths = np.zeros_like(powers)
         f_rads = np.zeros_like(powers)
         f_axs = np.zeros_like(powers)
+        scatters_angular = np.zeros_like(powers)
         for i, power in enumerate(powers):
             result = self.dipole_depth_and_freq(wavelength_m, waist_m, power, alpha_hz)
             depths[i] = result["U0_uK"]
             f_rads[i] = result["f_radial_Hz"] * 1e-3  # kHz
             f_axs[i] = result["f_axial_Hz"] * 1e-3  # kHz
-        return depths, f_rads, f_axs
+            scatter_hz = self.estimate_scattering_rate(wavelength_m, waist_m, power, alpha_hz)
+            scatters_angular[i] = 2 * np.pi * scatter_hz  # rad/s
+        return depths, f_rads, f_axs, scatters_angular
 
 
 class PlotCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None):
-        figure = Figure(figsize=(7.5, 8.5), facecolor=FIG_BG)
+        figure = Figure(figsize=(7.5, 9.6), facecolor=FIG_BG)
         super().__init__(figure)
         self.setParent(parent)
-        self.ax_depth, self.ax_freq = self.figure.subplots(2, 1)
-        self.figure.subplots_adjust(left=0.11, right=0.97, top=0.92, bottom=0.08, hspace=0.35)
+        self.ax_depth, self.ax_freq, self.ax_scatter = self.figure.subplots(3, 1)
+        self.figure.subplots_adjust(left=0.11, right=0.97, top=0.94, bottom=0.07, hspace=0.42)
 
-    def draw_traces(self, powers, depths, f_rads, f_axs):
+    def draw_traces(self, powers, depths, f_rads, f_axs, scatters):
         self.ax_depth.clear()
         self.ax_depth.set_facecolor(AX_BG)
         self.ax_depth.plot(powers, depths, color=DEPTH_COLOR, linewidth=2.4)
@@ -127,12 +146,22 @@ class PlotCanvas(FigureCanvasQTAgg):
         self.ax_freq.plot(powers, f_rads, color=RADIAL_COLOR, linewidth=2.4, label="Radial")
         # self.ax_freq.plot(powers, f_axs, color=AXIAL_COLOR, linewidth=2.4, label="Axial")
         self.ax_freq.set_title("Trap Frequencies", fontsize=13, fontweight="semibold")
-        self.ax_freq.set_xlabel("Power (W)")
         self.ax_freq.set_ylabel("Frequency (kHz)")
         self.ax_freq.grid(True, color=GRID_COLOR, alpha=0.25, linewidth=0.8)
         self.ax_freq.spines["top"].set_visible(False)
         self.ax_freq.spines["right"].set_visible(False)
         self.ax_freq.legend(frameon=False)
+
+        self.ax_scatter.clear()
+        self.ax_scatter.set_facecolor(AX_BG)
+        self.ax_scatter.plot(powers, scatters, color=SCATTER_COLOR, linewidth=2.4)
+        self.ax_scatter.fill_between(powers, scatters, color=SCATTER_COLOR, alpha=0.12)
+        self.ax_scatter.set_title("Photon Scattering Rate (Estimated, Angular)", fontsize=13, fontweight="semibold")
+        self.ax_scatter.set_xlabel("Power (W)")
+        self.ax_scatter.set_ylabel("Rate (rad/s) = 2pi x Hz")
+        self.ax_scatter.grid(True, color=GRID_COLOR, alpha=0.25, linewidth=0.8)
+        self.ax_scatter.spines["top"].set_visible(False)
+        self.ax_scatter.spines["right"].set_visible(False)
 
         self.draw_idle()
 
@@ -276,8 +305,8 @@ class DipoleWindow(QMainWindow):
         wavelength_label.setMinimumWidth(130)
         self.wavelength_spin = ArrowSpinBox()
         self.wavelength_spin.setRange(300.0, 2000.0)
-        self.wavelength_spin.setSingleStep(1.0)
-        self.wavelength_spin.setDecimals(0)
+        self.wavelength_spin.setSingleStep(0.01)
+        self.wavelength_spin.setDecimals(2)
         self.wavelength_spin.setValue(830.0)
 
         waist_label = QLabel("Waist (um)")
@@ -382,8 +411,8 @@ class DipoleWindow(QMainWindow):
         powers = np.round(powers, 6)
 
         alpha_hz = self.model.get_polarizability(wavelength_m)
-        depths, f_rads, f_axs = self.model.compute_traces(wavelength_m, waist_m, alpha_hz, powers)
-        self.canvas.draw_traces(powers, depths, f_rads, f_axs)
+        depths, f_rads, f_axs, scatters = self.model.compute_traces(wavelength_m, waist_m, alpha_hz, powers)
+        self.canvas.draw_traces(powers, depths, f_rads, f_axs, scatters)
 
         params = self.model.dipole_depth_and_freq(
             wavelength_m,

@@ -179,7 +179,7 @@ class HFPolarizabilityCalculator:
         }
     
     def calculate(self, wavelength):
-        self.arc_results = self.pol.getPolarizability(wavelength, units='SI')
+        self.arc_results = self.pol.getPolarizability(wavelength, units='SI', accountForStateLifetime=True)
         a_scalar = float(self.arc_results[0])
         a_vector = float(self.arc_results[1])
         a_tensor = float(self.arc_results[2])

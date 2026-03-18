@@ -1,0 +1,251 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Wolfram 14.3' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       154,          7]
+NotebookDataLength[      9248,        241]
+NotebookOptionsPosition[      8221,        215]
+NotebookOutlinePosition[      8628,        231]
+CellTagsIndexPosition[      8585,        228]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[BoxData[
+ RowBox[{"DensityPlot", "[", 
+  RowBox[{
+   RowBox[{"Abs", "[", 
+    RowBox[{
+     SuperscriptBox["E", 
+      RowBox[{"I", " ", "x"}]], "+", 
+     SuperscriptBox["E", 
+      RowBox[{
+       RowBox[{"-", "I"}], " ", "x"}]]}], "]"}], ",", " ", 
+   RowBox[{"{", 
+    RowBox[{"x", ",", " ", 
+     RowBox[{
+      RowBox[{"-", "8"}], " ", "Pi"}], ",", " ", 
+     RowBox[{"8", " ", "Pi"}]}], "}"}], ",", " ", 
+   RowBox[{"{", 
+    RowBox[{"y", ",", " ", 
+     RowBox[{
+      RowBox[{"-", "8"}], " ", "Pi"}], ",", " ", 
+     RowBox[{"8", " ", "Pi"}]}], "}"}]}], "]"}]], "Input",
+ CellChangeTimes->{{3.9824354828271866`*^9, 
+  3.982435559569126*^9}},ExpressionUUID->"bcbe77ea-11fc-084e-b3db-\
+0112bd9ee29a"],
+
+Cell[BoxData[
+ $Aborted], "Output",
+ CellChangeTimes->{3.9824356404600124`*^9},
+ CellLabel->"Out[1]=",ExpressionUUID->"6d03172d-8518-5344-989d-9b5b804feb8a"]
+}, Open  ]],
+
+Cell[BoxData["."], "Input",
+ CellChangeTimes->{
+  3.982435622945833*^9},ExpressionUUID->"2c162fc8-4487-2244-a8fd-\
+c92af6c41a61"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"rng", "=", 
+   RowBox[{"2", "\[Pi]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"Manipulate", "[", 
+  RowBox[{
+   RowBox[{"DensityPlot", "[", 
+    RowBox[{
+     RowBox[{
+      SuperscriptBox[
+       RowBox[{"Abs", "[", 
+        RowBox[{"Cos", "[", "x", "]"}], "]"}], "2"], "+", 
+      SuperscriptBox[
+       RowBox[{"Abs", "[", 
+        RowBox[{"Cos", "[", 
+         RowBox[{"y", "+", "\[Phi]"}], "]"}], "]"}], "2"]}], ",", 
+     RowBox[{"{", 
+      RowBox[{"x", ",", 
+       RowBox[{"-", "rng"}], ",", "rng"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"y", ",", 
+       RowBox[{"-", "rng"}], ",", "rng"}], "}"}], ",", 
+     RowBox[{"PlotPoints", "->", "50"}]}], "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"\[Phi]", ",", "0", ",", 
+     RowBox[{"2", "\[Pi]"}]}], "}"}]}], "]"}]}], "Input",
+ CellChangeTimes->{{3.982435630288704*^9, 3.982435797680683*^9}},
+ CellLabel->"In[12]:=",ExpressionUUID->"2df9f3db-344b-9d41-8e3c-307321fc62e8"],
+
+Cell[BoxData[
+ TagBox[
+  StyleBox[
+   DynamicModuleBox[{$CellContext`\[Phi]$$ = 2.7394687939302997`, 
+    Typeset`show$$ = True, Typeset`bookmarkList$$ = {}, 
+    Typeset`bookmarkMode$$ = "Menu", Typeset`animator$$, Typeset`animvar$$ = 
+    1, Typeset`name$$ = "\"untitled\"", Typeset`specs$$ = {{
+      Hold[$CellContext`\[Phi]$$], 0, 2 Pi, ControlType -> Manipulator}}, 
+    Typeset`size$$ = {270., {132.59092203776044`, 136.88987223307294`}}, 
+    Typeset`update$$ = 0, Typeset`initDone$$, Typeset`skipInitDone$$ = True, 
+    Typeset`keyframeActionsQ$$ = False, Typeset`keyframeList$$ = {}}, 
+    DynamicBox[Manipulate`ManipulateBoxes[
+     1, StandardForm, "Variables" :> {$CellContext`\[Phi]$$ = 0}, 
+      "ControllerVariables" :> {}, 
+      "OtherVariables" :> {
+       Typeset`show$$, Typeset`bookmarkList$$, Typeset`bookmarkMode$$, 
+        Typeset`animator$$, Typeset`animvar$$, Typeset`name$$, 
+        Typeset`specs$$, Typeset`size$$, Typeset`update$$, Typeset`initDone$$,
+         Typeset`skipInitDone$$, Typeset`keyframeActionsQ$$, 
+        Typeset`keyframeList$$}, "Body" :> DensityPlot[Abs[
+           Cos[$CellContext`x]]^2 + Abs[
+           
+           Cos[$CellContext`y + $CellContext`\[Phi]$$]]^2, {$CellContext`x, \
+-$CellContext`rng, $CellContext`rng}, {$CellContext`y, -$CellContext`rng, \
+$CellContext`rng}, PlotPoints -> 50], 
+      "Specifications" :> {{$CellContext`\[Phi]$$, 0, 2 Pi}}, "Options" :> {},
+       "DefaultOptions" :> {}],
+     ImageSizeCache->{
+      302.32500000000005`, {164.92405192057294`, 169.22300211588544`}},
+     SingleEvaluation->True],
+    Deinitialization:>None,
+    DynamicModuleValues:>{},
+    SynchronousInitialization->True,
+    UndoTrackedVariables:>{Typeset`show$$, Typeset`bookmarkMode$$},
+    UnsavedVariables:>{Typeset`initDone$$},
+    UntrackedVariables:>{Typeset`size$$}], "Manipulate",
+   Deployed->True,
+   StripOnInput->False],
+  Manipulate`InterpretManipulate[1]]], "Output",
+ CellChangeTimes->{{3.982435670848398*^9, 3.982435728456192*^9}, {
+  3.9824357614113255`*^9, 3.9824357981616783`*^9}},
+ CellLabel->"Out[13]=",ExpressionUUID->"2bdce7cc-5b5b-ec44-b972-5126b3e33e64"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"rng", "=", 
+   RowBox[{"2", "\[Pi]"}]}], ";"}], "\[IndentingNewLine]", 
+ RowBox[{"Manipulate", "[", 
+  RowBox[{
+   RowBox[{"DensityPlot", "[", 
+    RowBox[{
+     SuperscriptBox[
+      RowBox[{"Abs", "[", 
+       RowBox[{
+        RowBox[{"Cos", "[", "x", "]"}], "+", 
+        RowBox[{
+         RowBox[{"Exp", "[", 
+          RowBox[{"I", " ", "\[Chi]"}], "]"}], 
+         RowBox[{"Cos", "[", 
+          RowBox[{"y", "+", "\[Phi]"}], "]"}]}]}], "]"}], "2"], ",", 
+     RowBox[{"{", 
+      RowBox[{"x", ",", 
+       RowBox[{"-", "rng"}], ",", "rng"}], "}"}], ",", 
+     RowBox[{"{", 
+      RowBox[{"y", ",", 
+       RowBox[{"-", "rng"}], ",", "rng"}], "}"}], ",", 
+     RowBox[{"PlotPoints", "->", "50"}]}], "]"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"\[Phi]", ",", "0", ",", 
+     RowBox[{"2", "\[Pi]"}]}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"\[Chi]", ",", "0", ",", 
+     RowBox[{"2", "\[Pi]"}]}], "}"}]}], "]"}]}], "Input",
+ CellChangeTimes->{{3.982435835002016*^9, 3.9824358771009445`*^9}},
+ CellLabel->"In[16]:=",ExpressionUUID->"ba603611-0dea-6f46-b6a2-ca280fdf1e03"],
+
+Cell[BoxData[
+ TagBox[
+  StyleBox[
+   DynamicModuleBox[{$CellContext`\[Phi]$$ = 
+    1.1184069846779663`, $CellContext`\[Chi]$$ = 1.6713272917097701`, 
+    Typeset`show$$ = True, Typeset`bookmarkList$$ = {}, 
+    Typeset`bookmarkMode$$ = "Menu", Typeset`animator$$, Typeset`animvar$$ = 
+    1, Typeset`name$$ = "\"untitled\"", Typeset`specs$$ = {{
+      Hold[$CellContext`\[Phi]$$], 0, 2 Pi, ControlType -> Manipulator}, {
+      Hold[$CellContext`\[Chi]$$], 0, 2 Pi, ControlType -> Manipulator}}, 
+    Typeset`size$$ = {270., {132.59092203776044`, 136.88987223307294`}}, 
+    Typeset`update$$ = 0, Typeset`initDone$$, Typeset`skipInitDone$$ = True, 
+    Typeset`keyframeActionsQ$$ = False, Typeset`keyframeList$$ = {}}, 
+    DynamicBox[Manipulate`ManipulateBoxes[
+     1, StandardForm, 
+      "Variables" :> {$CellContext`\[Phi]$$ = 0, $CellContext`\[Chi]$$ = 0}, 
+      "ControllerVariables" :> {}, 
+      "OtherVariables" :> {
+       Typeset`show$$, Typeset`bookmarkList$$, Typeset`bookmarkMode$$, 
+        Typeset`animator$$, Typeset`animvar$$, Typeset`name$$, 
+        Typeset`specs$$, Typeset`size$$, Typeset`update$$, Typeset`initDone$$,
+         Typeset`skipInitDone$$, Typeset`keyframeActionsQ$$, 
+        Typeset`keyframeList$$}, "Body" :> 
+      DensityPlot[
+       Abs[Cos[$CellContext`x] + 
+          Exp[I $CellContext`\[Chi]$$] 
+           Cos[$CellContext`y + $CellContext`\[Phi]$$]]^2, {$CellContext`x, \
+-$CellContext`rng, $CellContext`rng}, {$CellContext`y, -$CellContext`rng, \
+$CellContext`rng}, PlotPoints -> 50], 
+      "Specifications" :> {{$CellContext`\[Phi]$$, 0, 2 
+         Pi}, {$CellContext`\[Chi]$$, 0, 2 Pi}}, "Options" :> {}, 
+      "DefaultOptions" :> {}],
+     ImageSizeCache->{
+      302.32500000000005`, {184.81405192057292`, 189.11300211588542`}},
+     SingleEvaluation->True],
+    Deinitialization:>None,
+    DynamicModuleValues:>{},
+    SynchronousInitialization->True,
+    UndoTrackedVariables:>{Typeset`show$$, Typeset`bookmarkMode$$},
+    UnsavedVariables:>{Typeset`initDone$$},
+    UntrackedVariables:>{Typeset`size$$}], "Manipulate",
+   Deployed->True,
+   StripOnInput->False],
+  Manipulate`InterpretManipulate[1]]], "Output",
+ CellChangeTimes->{3.982435839366003*^9, 3.9824358778066845`*^9},
+ CellLabel->"Out[17]=",ExpressionUUID->"dd7cc5fa-c09f-5c46-974a-2eb5d8183820"]
+}, Open  ]]
+},
+WindowSize->{569.25, 624.75},
+WindowMargins->{{429, Automatic}, {Automatic, 17.25}},
+FrontEndVersion->"14.3 for Microsoft Windows (64-bit) (July 8, 2025)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"99bfe1ac-cb6b-dd4a-ae1f-1518405895d3"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[576, 22, 712, 22, 22, "Input",ExpressionUUID->"bcbe77ea-11fc-084e-b3db-0112bd9ee29a"],
+Cell[1291, 46, 157, 3, 27, "Output",ExpressionUUID->"6d03172d-8518-5344-989d-9b5b804feb8a"]
+}, Open  ]],
+Cell[1463, 52, 129, 3, 21, "Input",ExpressionUUID->"2c162fc8-4487-2244-a8fd-c92af6c41a61"],
+Cell[CellGroupData[{
+Cell[1617, 59, 975, 27, 53, "Input",ExpressionUUID->"2df9f3db-344b-9d41-8e3c-307321fc62e8"],
+Cell[2595, 88, 2142, 41, 346, "Output",ExpressionUUID->"2bdce7cc-5b5b-ec44-b972-5126b3e33e64"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[4774, 134, 1112, 31, 53, "Input",ExpressionUUID->"ba603611-0dea-6f46-b6a2-ca280fdf1e03"],
+Cell[5889, 167, 2316, 45, 386, "Output",ExpressionUUID->"dd7cc5fa-c09f-5c46-974a-2eb5d8183820"]
+}, Open  ]]
+}
+]
+*)
+
+(* End of internal cache information *)
+
