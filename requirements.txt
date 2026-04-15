@@ -2,3 +2,4 @@ arc-alkali-rydberg-calculator
 numpy
 matplotlib
 PyQt6
+marimo

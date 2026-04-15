@@ -9,6 +9,7 @@ Small utilities for Rubidium optical lattice calculations and visualization usin
 - `numpy`
 - `matplotlib`
 - `PyQt6`
+- `marimo`
 
 ## Install
 
@@ -32,3 +33,7 @@ q = 0
 ## Run
 
 `python lattice-calc-plt.py`
+
+For the notebook-style Marimo version:
+
+`marimo run lattice-calc-mo.py`
